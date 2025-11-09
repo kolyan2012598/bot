@@ -4,17 +4,8 @@ import sqlite3
 import random
 import threading
 import hashlib
-import base64
-import json
-import socket
-import struct
-import ssl
-import re
 from datetime import datetime
 from fake_useragent import UserAgent
-import concurrent.futures
-import asyncio
-import aiohttp
 
 class UltimateGodEyeBot:
     def __init__(self, token):
@@ -27,95 +18,65 @@ class UltimateGodEyeBot:
         
     def setup_database(self):
         """База данных для целей"""
-        self.conn = sqlite3.connect('god_eye.db', check_same_thread=False)
-        self.cursor = self.conn.cursor()
-        
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS mass_targets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                target_username TEXT,
-                target_user_id INTEGER,
-                attack_type TEXT,
-                requests_sent INTEGER DEFAULT 0,
-                start_time TEXT,
-                status TEXT DEFAULT 'active'
-            )
-        ''')
-        self.conn.commit()
-
-    def generate_mass_targets(self, count=199999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999):
-        """Генерация массовых целей для атаки"""
-        targets = []
-        for i in range(min(count, 10000)):  # Ограничиваем разумным числом
-            target = {
-                'username': f'target_{random.randint(1000000, 9999999)}',
-                'user_id': random.randint(100000000, 999999999)
-            }
-            targets.append(target)
-        return targets
+        try:
+            self.conn = sqlite3.connect('god_eye.db', check_same_thread=False)
+            self.cursor = self.conn.cursor()
+            
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mass_targets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target_username TEXT,
+                    target_user_id INTEGER,
+                    attack_type TEXT,
+                    requests_sent INTEGER DEFAULT 0,
+                    start_time TEXT,
+                    status TEXT DEFAULT 'active'
+                )
+            ''')
+            self.conn.commit()
+            print("✅ База данных инициализирована")
+        except Exception as e:
+            print(f"❌ Ошибка базы данных: {e}")
 
     def api_request(self, method, params=None):
         """API запрос с ротацией User-Agent"""
         url = self.base_url + method
         headers = {
-            'User-Agent': self.ua.random,
-            'X-Forwarded-For': f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}'
+            'User-Agent': self.ua.random
         }
         try:
             response = requests.post(url, json=params, headers=headers, timeout=5)
             return response.json()
-        except:
+        except Exception as e:
+            print(f"❌ API ошибка: {e}")
             return None
 
     def send_mass_report(self, target_username, target_user_id=None, attack_power=100):
         """Массовая отправка репортов"""
-        report_types = ['spam', 'violence', 'pornography', 'copyright', 'child_abuse']
-        
-        for i in range(attack_power):
-            try:
-                # Имитация отправки репорта через разные методы
-                report_data = {
-                    'user_id': target_user_id or random.randint(100000000, 999999999),
-                    'reason': random.choice(report_types),
-                    'timestamp': int(time.time()),
-                    'report_id': hashlib.md5(f"{target_username}{i}{time.time()}".encode()).hexdigest()
-                }
-                
+        try:
+            for i in range(min(attack_power, 1000)):  # Ограничиваем 1000
                 # Сохраняем в базу
                 self.cursor.execute('''
                     INSERT INTO mass_targets 
                     (target_username, target_user_id, attack_type, requests_sent, start_time)
                     VALUES (?, ?, ?, ?, ?)
-                ''', (target_username, target_user_id, 'mass_report', 1, datetime.now().isoformat()))
+                ''', (target_username, target_user_id or 0, 'mass_report', 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 
-                self.conn.commit()
+                # Имитация отправки репорта
+                report_data = {
+                    'user_id': target_user_id or random.randint(100000000, 999999999),
+                    'reason': 'spam',
+                    'timestamp': int(time.time())
+                }
                 
-                # Случайная задержка
-                time.sleep(random.uniform(0.01, 0.1))
+                time.sleep(0.01)  # Небольшая задержка
                 
-            except Exception as e:
-                continue
-
-        return attack_power
-
-    def start_ddos_attack(self, target_username, power=1000):
-        """Запуск DDoS атаки на цель"""
-        thread = threading.Thread(target=self._ddos_worker, args=(target_username, power))
-        thread.daemon = True
-        thread.start()
-        return f"⚡ DDoS атака на @{target_username} запущена (мощность: {power})"
-
-    def _ddos_worker(self, target_username, power):
-        """Воркер для DDoS атаки"""
-        for i in range(power):
-            try:
-                # Создаем множество запросов
-                self.api_request('sendMessage', {
-                    'chat_id': random.randint(1, 1000000),
-                    'text': f"ATTACK {target_username} {hashlib.md5(str(i).encode()).hexdigest()}"
-                })
-            except:
-                pass
+            self.conn.commit()
+            return min(attack_power, 1000)
+            
+        except Exception as e:
+            print(f"❌ Ошибка отправки репортов: {e}")
+            return 0
 
     def send_message(self, chat_id, text):
         """Отправка сообщения"""
@@ -130,72 +91,81 @@ class UltimateGodEyeBot:
 
     def process_message(self, message):
         """Обработка сообщений"""
-        chat_id = message['chat']['id']
-        text = message.get('text', '')
-        
-        if text.startswith('/'):
-            self.handle_command(chat_id, text, message)
+        try:
+            chat_id = message['chat']['id']
+            text = message.get('text', '')
+            
+            if text.startswith('/'):
+                self.handle_command(chat_id, text, message)
+        except Exception as e:
+            print(f"❌ Ошибка обработки сообщения: {e}")
 
     def handle_command(self, chat_id, text, message):
         """Обработка команд"""
-        if text == '/start':
-            self.show_menu(chat_id)
+        try:
+            if text == '/start':
+                self.show_menu(chat_id)
+                
+            elif text.startswith('/mass_report'):
+                args = text.split(' ')
+                if len(args) >= 2:
+                    username = args[1].replace('@', '')
+                    power = int(args[2]) if len(args) >= 3 else 100
+                    
+                    self.send_message(chat_id, f"💥 Запуск атаки на @{username}...")
+                    result = self.send_mass_report(username, power=power)
+                    self.send_message(chat_id, f"☠️ Отправлено {result} репортов на @{username}")
+                    
+            elif text == '/mystats':
+                self.show_stats(chat_id)
+                
+        except Exception as e:
+            self.send_message(chat_id, f"❌ Ошибка команды: {e}")
+
+    def show_stats(self, chat_id):
+        """Показать статистику"""
+        try:
+            self.cursor.execute("SELECT COUNT(*) FROM mass_targets")
+            total_targets = self.cursor.fetchone()[0]
             
-        elif text.startswith('/mass_report'):
-            args = text.split(' ')
-            if len(args) >= 2:
-                username = args[1].replace('@', '')
-                power = int(args[2]) if len(args) >= 3 else 100
-                
-                self.send_message(chat_id, f"💥 Запуск МАСС-атаки на @{username}...")
-                result = self.send_mass_report(username, power=power)
-                self.send_message(chat_id, f"☠️ Отправлено {result} репортов на @{username}")
-                
-        elif text.startswith('/ddos'):
-            args = text.split(' ')
-            if len(args) >= 2:
-                username = args[1].replace('@', '')
-                power = int(args[2]) if len(args) >= 3 else 1000
-                
-                result = self.start_ddos_attack(username, power)
-                self.send_message(chat_id, result)
-                
-        elif text.startswith('/nuke'):
-            args = text.split(' ')
-            if len(args) >= 2:
-                username = args[1].replace('@', '')
-                
-                # Комбинированная атака
-                self.send_message(chat_id, f"🚀 ЗАПУСК ЯДЕРНОЙ АТАКИ НА @{username}...")
-                
-                # Масс-репорты
-                self.send_mass_report(username, power=500)
-                
-                # DDoS атака
-                self.start_ddos_attack(username, 2000)
-                
-                self.send_message(chat_id, f"💣 ЯДЕРНАЯ АТАКА НА @{username} ЗАПУЩЕНА!")
+            self.cursor.execute("SELECT SUM(requests_sent) FROM mass_targets")
+            total_attacks = self.cursor.fetchone()[0] or 0
+            
+            self.cursor.execute("SELECT COUNT(DISTINCT target_username) FROM mass_targets")
+            unique_targets = self.cursor.fetchone()[0]
+            
+            stats_text = f"""
+📊 <b>СТАТИСТИКА АТАК:</b>
+
+🎯 Уникальных целей: {unique_targets}
+💣 Всего атак: {total_attacks}
+📁 Записей в базе: {total_targets}
+
+💾 База: god_eye.db
+            """
+            self.send_message(chat_id, stats_text)
+        except Exception as e:
+            self.send_message(chat_id, f"❌ Ошибка статистики: {e}")
 
     def show_menu(self, chat_id):
         """Показать меню"""
         menu = """
-☠️ <b>ULTIMATE GOD EYE BOT</b>
+☠️ <b>GOD EYE BOT</b>
 
-<b>Команды массовых атак:</b>
+<b>Команды:</b>
 /mass_report @username - 100 репортов
 /mass_report @username 500 - 500 репортов
-/ddos @username - DDoS атака
-/ddos @username 2000 - Мощный DDoS
-/nuke @username - ЯДЕРНАЯ АТАКА (все методы)
+/mystats - статистика атак
 
-<b>Мощность:</b>
-До 1.9e+125 целей одновременно
+<b>Данные сохраняются в:</b>
+📁 god_eye.db
         """
         self.send_message(chat_id, menu)
 
     def start_polling(self):
         """Запуск бота"""
-        print("☠️ ULTIMATE GOD EYE BOT АКТИВИРОВАН")
+        print("☠️ GOD EYE BOT ЗАПУЩЕН")
+        print("💾 База данных: god_eye.db")
         
         while True:
             try:
@@ -206,13 +176,11 @@ class UltimateGodEyeBot:
                         self.process_message(update['message'])
                 time.sleep(1)
             except Exception as e:
-                print(f"Ошибка: {e}")
+                print(f"❌ Ошибка: {e}")
                 time.sleep(5)
 
 # Запуск бота
 if __name__ == "__main__":
-    TOKEN = "8493345922:AAH1lQEMbdfiGK5icLvP1HyAV2iwV7qXZ9c"
+    TOKEN = "8271550032:AAHTBvz4qmLv8jpwg_eaeBHa2AqqqtO_xjs"  # Замените на ваш токен
     bot = UltimateGodEyeBot(TOKEN)
     bot.start_polling()
-    
-    
